@@ -28,7 +28,7 @@ pipeline {
         stage('Test') {
             steps {
                 // Commented out the test-related step
-                // sh 'mvn test'
+                 sh 'mvn test'
             }
         }
 
@@ -49,6 +49,11 @@ pipeline {
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t vehicleapp:latest .' // Build the Docker image
+            }
+        }
         stage('Deploy') {
             steps {
                 echo "Deploying the Java application..."
