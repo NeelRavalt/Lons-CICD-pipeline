@@ -2,19 +2,22 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven' // Maven tool configured in Jenkins.
+        maven 'maven' // Ensure you have Maven installed in Jenkins
     }
 
     environment {
-        // SonarQube server & project settings
-        SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
-        SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
+        SONAR_HOST_URL = 'http://your-sonarqube-server:9000' // Update with your SonarQube server URL
+        SONAR_AUTH_TOKEN = credentials('sonarqube-token') // Use your SonarQube credentials
+        DOCKER_REGISTRY = 'nraval'
+        DOCKER_REPO = 'farecalculationservice'
+        DOCKER_TAG = "${env.BUILD_ID}"
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/NeelRavalt/Microservice_wineapp.git'
+                git branch: 'main', 
+                    url: 'https://github.com/your-repo/farecalculationservice.git' // Update with your repo URL
             }
         }
 
@@ -24,22 +27,30 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Run Tests and Code Coverage') {
             steps {
-                withSonarQubeEnv('WineApp') { // Name from Jenkins config
-                    sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=Vehicalapp \
-                          -Dsonar.projectName=Vehicalapp \
-                          -Dsonar.java.binaries=target/classes
-                    '''
+                sh 'mvn test jacoco:report' // Run tests and generate the JaCoCo coverage report
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml' // Archive test results
+                    jacocoExec '**/target/jacoco.exec' // Ensure JaCoCo coverage report is gathered
                 }
             }
         }
 
-        stage('Test') {
+        stage('SonarQube Analysis') {
             steps {
-                sh 'mvn test'
+                withSonarQubeEnv('SonarQube') { // Set up SonarQube environment
+                    sh '''
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=farecalculationservice \
+                          -Dsonar.projectName=FareCalculationService \
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.junit.reportPaths=target/test-classes/test-report.xml \
+                          -Dsonar.jacoco.reportPaths=target/jacoco.exec
+                    '''
+                }
             }
         }
 
@@ -47,7 +58,7 @@ pipeline {
             steps {
                 script {
                     // Define the image name and tag
-                    def imageName = 'vehicle'
+                    def imageName = 'farecalculationservice'
                     def tagName = 'latest'
 
                     // Build the Docker image
@@ -59,6 +70,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo "Deploying the Java application..."
+                // Add your deployment commands here
             }
         }
     }
@@ -66,9 +78,15 @@ pipeline {
     post {
         success {
             echo "Pipeline completed successfully!"
+            echo "Docker image ready for deployment."
         }
         failure {
             echo "Pipeline failed!"
+        }
+        always {
+            archiveArtifacts 'target/*.jar'
+            // Archive the JaCoCo coverage report
+            archiveArtifacts '**/target/jacoco.exec'
         }
     }
 }
