@@ -25,6 +25,13 @@ pipeline {
             }
         }
 
+        stage('Test') {
+            steps {
+                // Running the tests
+                sh 'mvn test'
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('WineApp') { // Name from Jenkins config
@@ -39,12 +46,6 @@ pipeline {
                           -Dsonar.java.source=11
                     """
                 }
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh 'mvn test'
             }
         }
 
