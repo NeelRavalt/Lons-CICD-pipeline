@@ -2,60 +2,81 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven' // Maven tool configured in Jenkins
+        jdk 'jdk11'  // Must match JDK name in Jenkins config (Java 11 as per your POM)
+        maven 'maven' // Must match Maven name in Jenkins config
     }
 
     environment {
-        // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
-        SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
+        SONAR_AUTH_TOKEN = credentials('neel')
+        TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java'
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/NeelRavalt/Microservice_wineapp.git'
+                git branch: 'main', 
+                url: 'https://github.com/NeelRavalt/Lons-CICD-pipeline.git'
             }
         }
 
-        stage('Build') {
+        stage('Build & Test') {
             steps {
-                sh 'mvn clean package'
+                sh 'mvn clean verify' // Runs both tests and coverage
+            }
+            post {
+                always {
+                    // Test results
+                    junit '**/target/surefire-reports/*.xml'
+                    
+                    // Code coverage
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java',
+                        exclusionPattern: '**/target/generated-sources/**'
+                    )
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('WineApp') { // Name from Jenkins config
-                    sh '''
+                withSonarQubeEnv('WineApp') {
+                    sh """
                         mvn sonar:sonar \
-                          -Dsonar.projectKey=Microservice_vehicalapp \
-                          -Dsonar.projectName=Microservice_vehicalapp \
-                          -Dsonar.java.binaries=target/classes
-                    '''
+                          -Dsonar.projectKey=farecalculationservice \
+                          -Dsonar.projectName=FareCalculationService \
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.tests=${TEST_FILE} \
+                          -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                          -Dsonar.java.source=11
+                    """
                 }
             }
         }
 
-        stage('Test') {
+        stage('Quality Gate') {
             steps {
-                sh 'mvn test'
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo "Deploying the Java application..."
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
     }
 
     post {
+        always {
+            // Archive build artifacts and reports
+            archiveArtifacts artifacts: '**/target/*.jar,**/target/surefire-reports/*,**/target/site/jacoco/*', 
+                            allowEmptyArchive: true
+        }
         success {
-            echo "Pipeline completed successfully!"
+            echo 'Pipeline succeeded! Check SonarQube dashboard for details.'
         }
         failure {
-            echo "Pipeline failed!"
+            echo 'Pipeline failed! Check logs for details.'
         }
     }
 }
