@@ -29,8 +29,8 @@ pipeline {
                 withSonarQubeEnv('WineApp') { // Name from Jenkins config
                     sh '''
                         mvn sonar:sonar \
-                          -Dsonar.projectKey=Microservice_wineapp \
-                          -Dsonar.projectName=Microservice_wineapp \
+                          -Dsonar.projectKey=Vehicalapp \
+                          -Dsonar.projectName=Vehicalapp \
                           -Dsonar.java.binaries=target/classes
                     '''
                 }
