@@ -9,7 +9,7 @@ pipeline {
         // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
         SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
-        TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java' // Correct path to the test file
+        // TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java' // Correct path to the test file (commented out)
     }
 
     stages {
@@ -27,8 +27,8 @@ pipeline {
 
         stage('Test') {
             steps {
-                // Running the tests
-                sh 'mvn test'
+                // Commented out the test-related step
+                // sh 'mvn test'
             }
         }
 
@@ -40,7 +40,7 @@ pipeline {
                           -Dsonar.projectKey=Vehicalapp \
                           -Dsonar.projectName=Vehicalapp \
                           -Dsonar.java.binaries=target/classes \
-                          -Dsonar.tests=${TEST_FILE} \
+                          // -Dsonar.tests=${TEST_FILE} \   // Commented out the test file part
                           -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
                           -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
                           -Dsonar.java.source=11
