@@ -2,23 +2,45 @@ pipeline {
     agent any
 
     tools {
+
+        jdk 'jdk11'  // Must match JDK name in Jenkins config (Java 11 as per your POM)
+        maven 'maven' // Must match Maven name in Jenkins config
+
         maven 'maven' // Maven tool configured in Jenkins
         jdk 'jdk17' // Make sure you have JDK configured in Jenkins
+
     }
 
     environment {
-        // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
+
+        SONAR_AUTH_TOKEN = credentials('neel')
+        TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java'
+
         SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
         TEST_FILE_PATH = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java'
+
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/NeelRavalt/Microservice_wineapp.git'
+                git branch: 'main', 
+                url: 'https://github.com/NeelRavalt/Lons-CICD-pipeline.git'
             }
         }
+
+
+        stage('Build & Test') {
+            steps {
+                sh 'mvn clean verify' // Runs both tests and coverage
+            }
+            post {
+                always {
+                    // Test results
+                    junit '**/target/surefire-reports/*.xml'
+                    
+                    // Code coverage
 
         stage('Build and Test with Coverage') {
             steps {
@@ -28,6 +50,7 @@ pipeline {
             post {
                 always {
                     junit '**/target/surefire-reports/*.xml' // Archive JUnit test results
+
                     jacoco(
                         execPattern: '**/target/jacoco.exec',
                         classPattern: '**/target/classes',
@@ -43,6 +66,15 @@ pipeline {
                 withSonarQubeEnv('WineApp') {
                     sh """
                         mvn sonar:sonar \
+
+                          -Dsonar.projectKey=farecalculationservice \
+                          -Dsonar.projectName=FareCalculationService \
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.tests=${TEST_FILE} \
+                          -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                          -Dsonar.java.source=11
+
                           -Dsonar.projectKey=Microservice_vehicalapp \
                           -Dsonar.projectName=Microservice_vehicalapp \
                           -Dsonar.java.binaries=target/classes \
@@ -51,12 +83,14 @@ pipeline {
                           -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
                           -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
                           -Dsonar.jacoco.reportPaths=target/jacoco.exec
+
                     """
                 }
             }
         }
 
         stage('Quality Gate') {
+
             steps {
                 timeout(time: 1, unit: 'HOURS') {
                     waitForQualityGate abortPipeline: true
@@ -65,14 +99,28 @@ pipeline {
         }
 
         stage('Deploy') {
+
             steps {
-                echo "Deploying the Java application..."
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
     }
 
     post {
         always {
+
+            // Archive build artifacts and reports
+            archiveArtifacts artifacts: '**/target/*.jar,**/target/surefire-reports/*,**/target/site/jacoco/*', 
+                            allowEmptyArchive: true
+        }
+        success {
+            echo 'Pipeline succeeded! Check SonarQube dashboard for details.'
+        }
+        failure {
+            echo 'Pipeline failed! Check logs for details.'
+
             // Archive important files for debugging
             archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
             archiveArtifacts artifacts: '**/target/surefire-reports/*', fingerprint: true
@@ -85,6 +133,7 @@ pipeline {
         failure {
             echo "Pipeline failed!"
             // Optional: Add failure notification here
+
         }
     }
 }
