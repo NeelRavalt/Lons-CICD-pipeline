@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven' // Maven tool configured in Jenkins,
+        maven 'maven' // Maven tool configured in Jenkins
     }
 
     environment {
@@ -25,6 +25,13 @@ pipeline {
             }
         }
 
+        stage('Test') {
+            steps {
+                // Running the tests (commented out part of the previous conflict)
+                sh 'mvn test'
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('WineApp') { // Name from Jenkins config
@@ -42,9 +49,9 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Build Docker Image') {
             steps {
-                sh 'mvn test'
+                sh 'docker build -t vehicleapp:latest .' // Build the Docker image
             }
         }
 
