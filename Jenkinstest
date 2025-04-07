@@ -2,19 +2,27 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven' // Maven tool configured in Jenkins.
+        maven 'maven' // Maven tool configured in Jenkins
     }
 
     environment {
-        // SonarQube server & project settings
+        // SonarQube configuration
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
-        SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
+        SONAR_AUTH_TOKEN = credentials('neel')
+        
+        // Docker Hub configuration
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        DOCKER_REGISTRY = 'nraval' // Your Docker Hub username
+        DOCKER_REPO = 'vehicleappp' // Your repository name
+        DOCKER_TAG = "${env.BUILD_ID}-${env.GIT_COMMIT.take(7)}" // Unique tag
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/NeelRavalt/Microservice_wineapp.git'
+                git branch: 'main', 
+                url: 'https://github.com/NeelRavalt/Microservice_wineapp.git',
+                credentialsId: 'github-credentials' // Add if private repo
             }
         }
 
@@ -26,13 +34,22 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('WineApp') { // Name from Jenkins config
+                withSonarQubeEnv('WineApp') {
                     sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=Vehicalapp \
                           -Dsonar.projectName=Vehicalapp \
-                          -Dsonar.java.binaries=target/classes
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                     '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
@@ -43,22 +60,35 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Define the image name and tag
-                    def imageName = 'vehicle'
-                    def tagName = 'latest'
-
                     // Build the Docker image
-                    sh "docker build -t ${imageName}:${tagName} ."
+                    docker.build("${DOCKER_REGISTRY}/${DOCKER_REPO}:${DOCKER_TAG}")
+                    
+                    // Login to Docker Hub and push the image
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+                        docker.image("${DOCKER_REGISTRY}/${DOCKER_REPO}:${DOCKER_TAG}").push()
+                        docker.image("${DOCKER_REGISTRY}/${DOCKER_REPO}:latest").push() // Also push as latest
+                    }
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                echo "Deploying the Java application..."
+                script {
+                    // Example deployment command (adjust as needed)
+                    sh """
+                        docker pull ${DOCKER_REGISTRY}/${DOCKER_REPO}:${DOCKER_TAG}
+                        docker stop vehicle-app || true
+                        docker rm vehicle-app || true
+                        docker run -d \
+                            --name vehicle-app \
+                            -p 8080:8080 \
+                            ${DOCKER_REGISTRY}/${DOCKER_REPO}:${DOCKER_TAG}
+                    """
+                }
             }
         }
     }
@@ -66,9 +96,20 @@ pipeline {
     post {
         success {
             echo "Pipeline completed successfully!"
+            echo "Docker image pushed to: ${DOCKER_REGISTRY}/${DOCKER_REPO}:${DOCKER_TAG}"
+            slackSend channel: '#builds',
+                     message: "Build Success: ${env.JOB_NAME} ${env.BUILD_NUMBER}",
+                     color: 'good'
         }
         failure {
             echo "Pipeline failed!"
+            slackSend channel: '#builds',
+                     message: "Build Failed: ${env.JOB_NAME} ${env.BUILD_NUMBER}",
+                     color: 'danger'
+        }
+        always {
+            junit '**/target/surefire-reports/*.xml' // Archive test results
+            archiveArtifacts 'target/*.jar' // Archive build artifacts
         }
     }
 }
