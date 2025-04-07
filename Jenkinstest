@@ -2,25 +2,19 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven'
+        maven 'maven' // Maven tool configured in Jenkins.
     }
 
     environment {
-        // SonarQube configuration
+        // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
-        SONAR_AUTH_TOKEN = credentials('neel')
-        
-        // Docker Hub configuration
-        DOCKER_REGISTRY = 'nraval'
-        DOCKER_REPO = 'vehicleappp'
-        DOCKER_TAG = "${env.BUILD_ID}"
+        SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', 
-                    url: 'https://github.com/NeelRavalt/Microservice_wineapp.git'
+                git branch: 'main', url: 'https://github.com/NeelRavalt/Microservice_wineapp.git'
             }
         }
 
@@ -32,14 +26,12 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('WineApp') {
+                withSonarQubeEnv('WineApp') { // Name from Jenkins config
                     sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=Vehicalapp \
                           -Dsonar.projectName=Vehicalapp \
-                          -Dsonar.java.binaries=target/classes \
-                          -Dsonar.junit.reportPaths=target/test-classes/test-report.xml \
-                          -Dsonar.jacoco.reportPaths=target/jacoco.exec
+                          -Dsonar.java.binaries=target/classes
                     '''
                 }
             }
@@ -48,12 +40,6 @@ pipeline {
         stage('Test') {
             steps {
                 sh 'mvn test'
-            }
-            post {
-                always {
-                    junit 'target/surefire-reports/**/*.xml' // Correct test report path
-                    jacocoExec '**/target/jacoco.exec' // Ensure JaCoCo coverage report is gathered
-                }
             }
         }
 
@@ -70,17 +56,9 @@ pipeline {
             }
         }
 
-        // Removed the commented-out Deploy to Docker Hub stage and replaced with echo statement
-        stage('Deploy to Docker Hub') {
-            steps {
-                echo "Deployment successful! Docker image is ready to be pushed to Docker Hub."
-            }
-        }
-
         stage('Deploy') {
             steps {
                 echo "Deploying the Java application..."
-                // Add your deployment commands here
             }
         }
     }
@@ -88,13 +66,9 @@ pipeline {
     post {
         success {
             echo "Pipeline completed successfully!"
-            echo "Docker image ready for deployment."
         }
         failure {
             echo "Pipeline failed!"
-        }
-        always {
-            archiveArtifacts 'target/*.jar'
         }
     }
 }
