@@ -9,7 +9,7 @@ pipeline {
         // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
         SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
-        // TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java' // Correct path to the test file (commented out)
+        TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java' // Path to your test file
     }
 
     stages {
@@ -27,8 +27,8 @@ pipeline {
 
         stage('Test') {
             steps {
-                // Commented out the test-related step
-                 sh 'mvn test'
+                // Running the tests (commented out part of the previous conflict)
+                sh 'mvn test'
             }
         }
 
@@ -40,7 +40,7 @@ pipeline {
                           -Dsonar.projectKey=Vehicalapp \
                           -Dsonar.projectName=Vehicalapp \
                           -Dsonar.java.binaries=target/classes \
-                          // -Dsonar.tests=${TEST_FILE} \   // Commented out the test file part
+                          -Dsonar.tests=${TEST_FILE} \
                           -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
                           -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
                           -Dsonar.java.source=11
@@ -54,6 +54,7 @@ pipeline {
                 sh 'docker build -t vehicleapp:latest .' // Build the Docker image
             }
         }
+
         stage('Deploy') {
             steps {
                 echo "Deploying the Java application..."
@@ -68,10 +69,9 @@ pipeline {
         failure {
             echo "Pipeline failed!"
         }
-    }
 
-    stage('Quality Gate') {
-        steps {
+        always {
+            // Wait for Quality Gate to complete after all stages
             timeout(time: 5, unit: 'MINUTES') {
                 waitForQualityGate abortPipeline: true
             }
