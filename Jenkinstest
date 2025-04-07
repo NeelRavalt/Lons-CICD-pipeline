@@ -65,8 +65,8 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: '**/target/*.jar,**/target/surefire-reports/*,**/target/site/jacoco/*', 
-                            allowEmptyArchive: true
+            // FIXED: Removed line continuation and kept artifact patterns on one line
+            archiveArtifacts artifacts: '**/target/*.jar,**/target/surefire-reports/*,**/target/site/jacoco/*', allowEmptyArchive: true
         }
         success {
             echo 'Pipeline succeeded! Check SonarQube dashboard for details.'
