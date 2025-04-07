@@ -3,12 +3,14 @@ pipeline {
 
     tools {
         maven 'maven' // Maven tool configured in Jenkins
+        jdk 'jdk17' // Make sure you have JDK configured in Jenkins
     }
 
     environment {
         // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
         SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
+        TEST_FILE_PATH = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java'
     }
 
     stages {
@@ -18,28 +20,47 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build and Test with Coverage') {
             steps {
-                sh 'mvn clean package'
+                sh 'mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package'
+            }
+            
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml' // Archive JUnit test results
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java',
+                        exclusionPattern: '**/target/generated-sources/**'
+                    )
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('WineApp') { // Name from Jenkins config
-                    sh '''
+                withSonarQubeEnv('WineApp') {
+                    sh """
                         mvn sonar:sonar \
                           -Dsonar.projectKey=Microservice_vehicalapp \
                           -Dsonar.projectName=Microservice_vehicalapp \
-                          -Dsonar.java.binaries=target/classes
-                    '''
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.tests=${TEST_FILE_PATH} \
+                          -Dsonar.test.inclusions=${TEST_FILE_PATH} \
+                          -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                          -Dsonar.jacoco.reportPaths=target/jacoco.exec
+                    """
                 }
             }
         }
 
-        stage('Test') {
+        stage('Quality Gate') {
             steps {
-                sh 'mvn test'
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
@@ -51,11 +72,19 @@ pipeline {
     }
 
     post {
+        always {
+            // Archive important files for debugging
+            archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+            archiveArtifacts artifacts: '**/target/surefire-reports/*', fingerprint: true
+            archiveArtifacts artifacts: '**/target/site/jacoco/*', fingerprint: true
+        }
         success {
             echo "Pipeline completed successfully!"
+            // Optional: Add notification here (email, Slack, etc.)
         }
         failure {
             echo "Pipeline failed!"
+            // Optional: Add failure notification here
         }
     }
 }
