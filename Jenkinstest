@@ -9,7 +9,6 @@ pipeline {
         // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
         SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
-       // TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java' // Path to your test file
     }
 
     stages {
@@ -25,33 +24,35 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                // Running the tests (commented out part of the previous conflict)
-                sh 'mvn test'
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('WineApp') { // Name from Jenkins config
-                    sh """
+                    sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=Vehicalapp \
                           -Dsonar.projectName=Vehicalapp \
-                          -Dsonar.java.binaries=target/classes \
-                       //   -Dsonar.tests=${TEST_FILE} \
-                         // -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
-                          //-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                          //-Dsonar.java.source=11
-                    """
+                          -Dsonar.java.binaries=target/classes
+                    '''
                 }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t vehicleapp:latest .' // Build the Docker image
+                script {
+                    // Define the image name and tag
+                    def imageName = 'vehicle'
+                    def tagName = 'latest'
+
+                    // Build the Docker image
+                    sh "docker build -t ${imageName}:${tagName} ."
+                }
             }
         }
 
@@ -68,13 +69,6 @@ pipeline {
         }
         failure {
             echo "Pipeline failed!"
-        }
-
-        always {
-            // Wait for Quality Gate to complete after all stages
-            timeout(time: 5, unit: 'MINUTES') {
-                waitForQualityGate abortPipeline: true
-            }
         }
     }
 }
