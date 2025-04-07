@@ -9,6 +9,8 @@ pipeline {
         // SonarQube server & project settings
         SONAR_HOST_URL = 'http://your-sonarqube-server:9000'
         SONAR_AUTH_TOKEN = credentials('neel') // Jenkins credential ID
+        TEST_FILE = 'src/test/java/com/rideshare/fare/service/FareCalculationServiceTest.java' // Path to your test file
+
     }
 
     stages {
@@ -27,6 +29,16 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('WineApp') { // Name from Jenkins config
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=Vehicalapp \
+                          -Dsonar.projectName=Vehicalapp \
+                          -Dsonar.java.binaries=target/classes \
+                          -Dsonar.tests=${TEST_FILE} \
+                          -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                          -Dsonar.java.source=11
+                    """
                     sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=Vehicalapp \
@@ -56,6 +68,15 @@ pipeline {
         }
         failure {
             echo "Pipeline failed!"
+        }
+    }
+
+    stage('Quality Gate') {
+        steps {
+            timeout(time: 5, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: true
+            }
+
         }
     }
 }
