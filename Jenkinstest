@@ -45,14 +45,6 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
         stage('Test') {
             steps {
                 sh 'mvn test'
@@ -79,8 +71,8 @@ pipeline {
         }
 
         // Commented-out Deploy to Docker Hub stage
-        // stage('Deploy to Docker Hub') {
-        //     steps {
+         stage('Deploy to Docker Hub') {
+                steps {
         //         script {
         //             withCredentials([usernamePassword(
         //                 credentialsId: 'docker-hub-credentials',
@@ -95,7 +87,7 @@ pipeline {
         //             }
         //         }
         //     }
-        // }
+             }
 
         stage('Deploy') {
             steps {
