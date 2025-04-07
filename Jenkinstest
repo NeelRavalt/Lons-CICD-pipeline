@@ -41,9 +41,9 @@ pipeline {
                           -Dsonar.projectName=Vehicalapp \
                           -Dsonar.java.binaries=target/classes \
                        //   -Dsonar.tests=${TEST_FILE} \
-                          -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
-                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                          -Dsonar.java.source=11
+                         // -Dsonar.junit.reportPaths=target/surefire-reports/TEST-*.xml \
+                          //-Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                          //-Dsonar.java.source=11
                     """
                 }
             }
