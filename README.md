@@ -1,4 +1,4 @@
-# 🍷 Microservice WineApp
+# 🍷 Microservice LonApp
 
 This is a microservices-based Java application designed for wine management. Built using Spring Boot and Maven, integrated with SonarQube, Docker, and CI/CD via Jenkins.
 
