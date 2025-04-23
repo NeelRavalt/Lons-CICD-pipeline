@@ -46,11 +46,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Define the image name and tag
                     def imageName = 'vehicle'
                     def tagName = 'latest'
-
-                    // Build the Docker image
                     sh "docker build -t ${imageName}:${tagName} ."
                 }
             }
@@ -58,7 +55,18 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo "Deploying the Java application..."
+                script {
+                    def imageName = 'vehicle'
+                    def tagName = 'latest'
+
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                            docker tag vehicle:latest $DOCKER_USER/vehicle:latest
+                            docker push $DOCKER_USER/vehicle:latest
+                        '''
+                    }
+                }
             }
         }
     }
